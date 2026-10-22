@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
+// ⚠️ N'oubliez pas de remettre vos vrais imports ici si nécessaire
+// import '../stock/stock_screen.dart';
+// import '../vente/vente_screen.dart';
 
-// --- VOS IMPORTS D'ÉCRANS ---
-import 'package:mon_app_facturation/screens/stock/stock_screen.dart';
-import 'package:mon_app_facturation/screens/vente/vente_screen.dart';
 class AdminDashboard extends StatefulWidget {
-  const AdminDashboard({super.key});
+  const AdminDashboard({Key? key}) : super(key: key);
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -14,91 +13,57 @@ class AdminDashboard extends StatefulWidget {
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
 
+  // Liste des menus
   final List<Map<String, dynamic>> _menuItems = [
-    {'icon': Icons.dashboard, 'title': 'Dashboard'},
-    {'icon': Icons.inventory_2, 'title': 'Produits'},
-    {'icon': Icons.category, 'title': 'Catégories'},
-    {'icon': Icons.warehouse, 'title': 'Stocks'},
-    {'icon': Icons.point_of_sale, 'title': 'Ventes'},
-    {'icon': Icons.shopping_cart, 'title': 'Achats'},
-    {'icon': Icons.bar_chart, 'title': 'Rapports'},
-    {'icon': Icons.people, 'title': 'Utilisateurs'},
+    {'title': 'Dashboard', 'icon': Icons.dashboard},
+    {'title': 'Produits', 'icon': Icons.inventory_2},
+    {'title': 'Catégories', 'icon': Icons.category},
+    {'title': 'Stocks', 'icon': Icons.store},
+    {'title': 'Ventes', 'icon': Icons.point_of_sale},
+    {'title': 'Achats', 'icon': Icons.shopping_cart},
+    {'title': 'Rapports', 'icon': Icons.bar_chart},
+    {'title': 'Utilisateurs', 'icon': Icons.people},
   ];
 
-  // --- LISTE DES ÉCRANS TEMPORAIRES ---
-  final List<Widget> _screens = [
-    const SizedBox(), // Index 0 (Dashboard géré à part)
-    const StockScreen(), // Index 1 : Produits
-    const Center(child: Text('Écran Catégories à créer')), // Index 2
-    const StockScreen(), // Index 3 : Stocks
-    const VenteScreen(), // Index 4 : Ventes
-    const Center(child: Text('Écran Achats à créer')), // Index 5
-    const Center(child: Text('Écran Rapports à créer')), // Index 6
-    const Center(child: Text('Écran Utilisateurs à créer')), // Index 7
-  ];
+  // Liste des écrans
+  late List<Widget> _screens;
+
+  @override
+  void initState() {
+    super.initState();
+    _screens = [
+      _buildDashboardContent(), // Index 0 : Le dashboard
+      // ⚠️ REMPLACEZ CES WIDGETS PAR VOS VRAIS ÉCRANS (ex: const StockScreen())
+      const Center(child: Text("Écran Produits")), 
+      const Center(child: Text("Écran Catégories")), 
+      const Center(child: Text("Écran Stock")), 
+      const Center(child: Text("Écran Ventes")), 
+      const Center(child: Text("Écran Achats")), 
+      const Center(child: Text("Écran Rapports")), 
+      const Center(child: Text("Écran Utilisateurs")), 
+    ];
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isDesktop = MediaQuery.of(context).size.width >= 800;
+
     return Scaffold(
+      appBar: isDesktop
+          ? null
+          : AppBar(
+              backgroundColor: const Color(0xFF1E1E2C),
+              title: const Text('Admin', style: TextStyle(color: Colors.white)),
+              iconTheme: const IconThemeData(color: Colors.white),
+            ),
+      drawer: isDesktop ? null : Drawer(child: _buildSidebar(context)),
       body: Row(
         children: [
-          // ==========================================
-          // 1. LE MENU LATÉRAL
-          // ==========================================
-          Material(
-            color: const Color(0xFF1E1E2C),
-            child: SizedBox(
-              width: 250,
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
-                  const Text(
-                    'Ma Facturation',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 30),
-                  Expanded(
-                    child: ListView.builder(
-                      itemCount: _menuItems.length,
-                      itemBuilder: (context, index) {
-                        return ListTile(
-                          leading: Icon(
-                            _menuItems[index]['icon'],
-                            color: _selectedIndex == index ? Colors.blue : Colors.grey,
-                          ),
-                          title: Text(
-                            _menuItems[index]['title'],
-                            style: TextStyle(
-                              color: _selectedIndex == index ? Colors.blue : Colors.white,
-                            ),
-                          ),
-                          onTap: () {
-                            setState(() {
-                              _selectedIndex = index;
-                            });
-                          },
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          // ==========================================
-          // 2. LE CONTENU PRINCIPAL
-          // ==========================================
+          if (isDesktop) _buildSidebar(context),
           Expanded(
             child: Container(
-              color: Colors.grey[100],
-              child: _selectedIndex == 0
-                  ? _buildDashboardContent()
-                  : _screens[_selectedIndex],
+              color: const Color(0xFFF5F6F8),
+              child: _screens[_selectedIndex],
             ),
           ),
         ],
@@ -107,135 +72,201 @@ class _AdminDashboardState extends State<AdminDashboard> {
   }
 
   // ==========================================
-  // 3. LE CONTENU DU DASHBOARD
+  // MENU LATÉRAL
+  // ==========================================
+  Widget _buildSidebar(BuildContext context) {
+    return Material(
+      color: const Color(0xFF1E1E2C),
+      child: SizedBox(
+        width: 250,
+        child: Column(
+          children: [
+            const SizedBox(height: 50),
+            const Text(
+              'Ma Facturation',
+              style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 30),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _menuItems.length,
+                itemBuilder: (context, index) {
+                  final isSelected = _selectedIndex == index;
+                  return ListTile(
+                    leading: Icon(
+                      _menuItems[index]['icon'],
+                      color: isSelected ? Colors.blue : Colors.grey[400],
+                    ),
+                    title: Text(
+                      _menuItems[index]['title'],
+                      style: TextStyle(
+                        color: isSelected ? Colors.blue : Colors.grey[300],
+                        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                    selected: isSelected,
+                    selectedTileColor: Colors.white.withOpacity(0.05),
+                    onTap: () {
+                      setState(() {
+                        _selectedIndex = index;
+                      });
+                      if (MediaQuery.of(context).size.width < 800) {
+                        Navigator.pop(context); 
+                      }
+                    },
+                  );
+                },
+              ),
+            ),
+            ListTile(
+              leading: const Icon(Icons.logout, color: Colors.redAccent),
+              title: const Text('Déconnexion', style: TextStyle(color: Colors.redAccent)),
+              onTap: () {},
+            ),
+            const SizedBox(height: 20),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // CONTENU DU DASHBOARD
   // ==========================================
   Widget _buildDashboardContent() {
-    return Padding(
-      padding: const EdgeInsets.all(30.0),
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Titre aligné à droite (le bouton a été retiré)
-          const Row(
-            mainAxisAlignment: MainAxisAlignment.end,
+          const Text(
+            'Tableau de bord',
+            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
+          ),
+          const SizedBox(height: 20),
+
+          // Les 4 cartes avec les montants remis à 0 FCFA
+          Wrap(
+            spacing: 16.0,
+            runSpacing: 16.0,
             children: [
-              Text(
-                'Tableau de bord',
-                style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-              ),
+              _buildStatCard('RECETTES DU JOUR', '0 FCFA', Colors.blue),
+              _buildStatCard('RECETTES DU MOIS', '0 FCFA', Colors.blueAccent),
+              _buildStatCard('PRODUITS', '0', Colors.orange),
+              _buildStatCard('ALERTES STOCK', '0', Colors.redAccent),
             ],
           ),
-          const SizedBox(height: 30),
+          
+          const SizedBox(height: 24),
 
-          // Les 4 Cartes de statistiques (Chiffres à 0)
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              _buildStatCard('RECETTES DU JOUR', '0 F', Colors.blue),
-              _buildStatCard('RECETTES DU MOIS', '0 F', Colors.green), // Modifié à 0
-              _buildStatCard('PRODUITS', '0', Colors.orange),           // Modifié à 0
-              _buildStatCard('ALERTES STOCK', '0', Colors.red),
-            ],
+          const Text(
+            'Évolution des ventes (7 derniers jours)',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          const SizedBox(height: 30),
+          const SizedBox(height: 12),
+          
+          // Emplacement de votre graphique
+          Container(
+            height: 180,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: const Center(
+              child: Text("[ Emplacement de votre graphique ]", style: TextStyle(color: Colors.grey)),
+            ),
+          ),
 
-          // Le Graphique
-          Expanded(
-            child: Container(
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(10),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    spreadRadius: 2,
-                  ),
+          const SizedBox(height: 24),
+
+          const Text(
+            'Historique des dernières ventes',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+
+          // Tableau avec défilement horizontal pour mobile
+          Container(
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.grey.shade300),
+            ),
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: DataTable(
+                headingRowColor: MaterialStateProperty.all(Colors.grey.shade200),
+                columns: const [
+                  DataColumn(label: Text('REÇU', style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(label: Text('CAISSIER', style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(label: Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(label: Text('MODE', style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(label: Text('DATE', style: TextStyle(fontWeight: FontWeight.bold))),
+                  DataColumn(label: Text('ACTION', style: TextStyle(fontWeight: FontWeight.bold))),
                 ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Évolution des ventes (7 derniers jours)',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 20),
-                  Expanded(
-                    child: LineChart(
-                      LineChartData(
-                        gridData: const FlGridData(show: true, drawVerticalLine: false),
-                        titlesData: const FlTitlesData(
-                          rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                          bottomTitles: AxisTitles(
-                            sideTitles: SideTitles(showTitles: true),
-                          ),
-                        ),
-                        borderData: FlBorderData(show: false),
-                        lineBarsData: [
-                          LineChartBarData(
-                            // Ligne complètement plate à 0
-                            spots: const [
-                              FlSpot(0, 0), 
-                              FlSpot(1, 0), 
-                              FlSpot(2, 0),
-                              FlSpot(3, 0), 
-                              FlSpot(4, 0), // Modifié à 0
-                              FlSpot(5, 0), // Modifié à 0
-                              FlSpot(6, 0),
-                            ],
-                            isCurved: true,
-                            color: Colors.blue,
-                            barWidth: 3,
-                            isStrokeCapRound: true,
-                            belowBarData: BarAreaData(
-                              show: true,
-                              color: Colors.blue.withOpacity(0.1),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                rows: [
+                  // Ligne d'exemple avec 0 FCFA
+                  DataRow(cells: [
+                    const DataCell(Text('REC-001')),
+                    const DataCell(Text('Admin')),
+                    const DataCell(Text('0 FCFA')), // Prix remis à 0
+                    const DataCell(Text('Espèce')),
+                    const DataCell(Text('--/--/----')),
+                    DataCell(ElevatedButton(onPressed: (){}, child: const Text('Reçu'))),
+                  ]),
+                  DataRow(cells: [
+                    const DataCell(Text('REC-002')),
+                    const DataCell(Text('Admin')),
+                    const DataCell(Text('0 FCFA')), // Prix remis à 0
+                    const DataCell(Text('Mobile')),
+                    const DataCell(Text('--/--/----')),
+                    DataCell(ElevatedButton(onPressed: (){}, child: const Text('Reçu'))),
+                  ]),
                 ],
               ),
             ),
           ),
+          const SizedBox(height: 40),
         ],
       ),
     );
   }
 
-  // ==========================================
-  // 4. LES CARTES DE STATISTIQUES
-  // ==========================================
+  // Carte réutilisable
   Widget _buildStatCard(String title, String value, Color color) {
-    return Expanded(
-      child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 5),
-        padding: const EdgeInsets.all(15),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border(left: BorderSide(color: color, width: 5)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 10,
-              spreadRadius: 2,
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(title, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-            const SizedBox(height: 10),
-            Text(value, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          ],
-        ),
+    return Container(
+      width: 160,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(left: BorderSide(color: color, width: 4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+          ),
+        ],
       ),
     );
   }
