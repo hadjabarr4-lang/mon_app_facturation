@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../services/finance_service.dart';
-// Importez vos services si nécessaire (vente_service, etc.)
 
 class AccueilScreen extends StatefulWidget {
   const AccueilScreen({Key? key}) : super(key: key);
@@ -29,17 +28,18 @@ class _AccueilScreenState extends State<AccueilScreen> {
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      debugPrint("Erreur de chargement : $e");
+      debugPrint("Erreur chargement : $e");
     }
   }
 
-  Future<void> _recharger() async {
+  // Fonction générique pour afficher la fenêtre de saisie
+  Future<void> _afficherFenetre(String titre, String action) async {
     final ctrl = TextEditingController();
     
     await showDialog(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Recharger la caisse'),
+        title: Text(titre),
         content: TextField(
           controller: ctrl,
           keyboardType: TextInputType.number,
@@ -55,16 +55,22 @@ class _AccueilScreenState extends State<AccueilScreen> {
               final m = double.tryParse(ctrl.text) ?? 0;
               if (m > 0) {
                 try {
-                  await FinanceService.recharger(m, 'Recharge manuelle');
+                  // On appelle la bonne fonction selon le bouton cliqué
+                  if (action == 'recharger') {
+                    await FinanceService.recharger(m, 'Recharge manuelle');
+                  } else if (action == 'depense') {
+                    await FinanceService.depenser(m, 'Dépense manuelle');
+                  } else if (action == 'vendre') {
+                    await FinanceService.vendre(m, 'Espèces');
+                  }
+                  
                   ctrl.clear();
-                  
                   if (dialogContext.mounted) Navigator.pop(dialogContext);
-                  
                   _charger(); // Rafraîchir le solde
                   
                 } catch (e) {
                   ScaffoldMessenger.of(dialogContext).showSnackBar(
-                    SnackBar(content: Text('Erreur : $e')),
+                    SnackBar(content: Text('Erreur DB : $e')),
                   );
                 }
               }
@@ -78,7 +84,6 @@ class _AccueilScreenState extends State<AccueilScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Si vous voulez remettre votre beau design, c'est ici qu'il faut le placer.
     return Scaffold(
       backgroundColor: const Color(0xFFF5F6F8),
       appBar: AppBar(
@@ -126,23 +131,21 @@ class _AccueilScreenState extends State<AccueilScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
-                      _buildActionBtn("Recharger", Icons.add_card, Colors.green, _recharger),
-                      _buildActionBtn("Vendre", Icons.point_of_sale, Colors.blue, () {}), // À lier plus tard
-                      _buildActionBtn("Dépense", Icons.receipt_long, Colors.orange, () {}), // À lier plus tard
+                      _buildActionBtn("Recharger", Icons.add_card, Colors.green, () => _afficherFenetre('Recharger la caisse', 'recharger')),
+                      _buildActionBtn("Vendre", Icons.point_of_sale, Colors.blue, () => _afficherFenetre('Nouvelle vente', 'vendre')),
+                      _buildActionBtn("Dépense", Icons.receipt_long, Colors.orange, () => _afficherFenetre('Nouvelle dépense', 'depense')),
                     ],
                   ),
                   
                   const SizedBox(height: 30),
                   const Text("Ventes récentes", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 16),
-                  // Emplacement pour votre liste de ventes
                 ],
               ),
             ),
     );
   }
 
-  // Petit widget pour faire les boutons proprement
   Widget _buildActionBtn(String title, IconData icon, Color color, VoidCallback onTap) {
     return InkWell(
       onTap: onTap,
