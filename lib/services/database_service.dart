@@ -14,9 +14,9 @@ class DatabaseService {
     final path = join(await getDatabasesPath(), 'mon_app.db');
     return await openDatabase(
       path,
-      version: 2, // <--- Version 2 pour forcer la mise à jour
+      version: 3, // <--- Version 3
       onCreate: (db, version) async {
-        // Table Utilisateurs
+        // 1. Table Utilisateurs
         await db.execute('''
           CREATE TABLE utilisateurs(
             id TEXT PRIMARY KEY,
@@ -25,7 +25,7 @@ class DatabaseService {
           )
         ''');
 
-        // Table Produits
+        // 2. Table Produits
         await db.execute('''
           CREATE TABLE produits(
             id TEXT PRIMARY KEY,
@@ -41,7 +41,7 @@ class DatabaseService {
           )
         ''');
 
-        // Table Categories (NOUVELLE)
+        // 3. Table Categories
         await db.execute('''
           CREATE TABLE categories(
             id TEXT PRIMARY KEY,
@@ -49,9 +49,38 @@ class DatabaseService {
             description TEXT
           )
         ''');
+
+        // 4. Table Recharges
+        await db.execute('''
+          CREATE TABLE recharges(
+            id TEXT PRIMARY KEY,
+            montant REAL,
+            description TEXT,
+            date TEXT
+          )
+        ''');
+
+        // 5. Table Depenses
+        await db.execute('''
+          CREATE TABLE depenses(
+            id TEXT PRIMARY KEY,
+            montant REAL,
+            description TEXT,
+            date TEXT
+          )
+        ''');
+
+        // 6. Table Ventes
+        await db.execute('''
+          CREATE TABLE ventes(
+            id TEXT PRIMARY KEY,
+            montant_total REAL,
+            mode_paiement TEXT,
+            date TEXT
+          )
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // Si l'utilisateur avait la version 1, on ajoute la table categories
         if (oldVersion < 2) {
           await db.execute('''
             CREATE TABLE categories(
@@ -61,7 +90,34 @@ class DatabaseService {
             )
           ''');
         }
+        
+        if (oldVersion < 3) {
+          await db.execute('''
+            CREATE TABLE recharges(
+              id TEXT PRIMARY KEY,
+              montant REAL,
+              description TEXT,
+              date TEXT
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE depenses(
+              id TEXT PRIMARY KEY,
+              montant REAL,
+              description TEXT,
+              date TEXT
+            )
+          ''');
+          await db.execute('''
+            CREATE TABLE ventes(
+              id TEXT PRIMARY KEY,
+              montant_total REAL,
+              mode_paiement TEXT,
+              date TEXT
+            )
+          ''');
+        }
       },
-    ); // <-- Cette parenthèse ferme le openDatabase
-  } // <-- Cette accolade ferme le _initDb
-} // <-- Cette accolade ferme la classe DatabaseService
+    );
+  }
+}
