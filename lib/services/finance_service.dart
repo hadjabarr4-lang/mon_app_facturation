@@ -1,32 +1,53 @@
 import 'database_service.dart';
 
 class FinanceService {
-  // Calcul du solde sécurisé
+  // 1. Calcul du solde de la caisse
   static Future<double> soldeCaisse() async {
+    final ca = await chiffreAffaires();
+    final dep = await totalDepenses();
     final db = await DatabaseService.database;
+    
     double totalRecharges = 0;
-    double totalVentes = 0;
-    double totalDepenses = 0;
-
     try {
       final r1 = await db.rawQuery('SELECT SUM(montant) as t FROM recharges');
       totalRecharges = (r1.first['t'] as num?)?.toDouble() ?? 0;
     } catch (e) { print("Erreur recharges: $e"); }
-
-    try {
-      final r2 = await db.rawQuery('SELECT SUM(montant_total) as t FROM ventes');
-      totalVentes = (r2.first['t'] as num?)?.toDouble() ?? 0;
-    } catch (e) { print("Erreur ventes: $e"); }
-
-    try {
-      final r3 = await db.rawQuery('SELECT SUM(montant) as t FROM depenses');
-      totalDepenses = (r3.first['t'] as num?)?.toDouble() ?? 0;
-    } catch (e) { print("Erreur depenses: $e"); }
-
-    return totalRecharges + totalVentes - totalDepenses;
+    
+    return totalRecharges + ca - dep;
   }
 
-  // Ajouter une recharge
+  // 2. Chiffre d'affaires (Total des ventes)
+  static Future<double> chiffreAffaires() async {
+    final db = await DatabaseService.database;
+    try {
+      final r = await db.rawQuery('SELECT SUM(montant_total) as t FROM ventes');
+      return (r.first['t'] as num?)?.toDouble() ?? 0;
+    } catch (e) {
+      print("Erreur CA: $e");
+      return 0;
+    }
+  }
+
+  // 3. Total des dépenses
+  static Future<double> totalDepenses() async {
+    final db = await DatabaseService.database;
+    try {
+      final r = await db.rawQuery('SELECT SUM(montant) as t FROM depenses');
+      return (r.first['t'] as num?)?.toDouble() ?? 0;
+    } catch (e) {
+      print("Erreur depenses: $e");
+      return 0;
+    }
+  }
+
+  // 4. Bénéfice (CA - Dépenses)
+  static Future<double> benefice() async {
+    final ca = await chiffreAffaires();
+    final dep = await totalDepenses();
+    return ca - dep;
+  }
+
+  // 5. Ajouter une recharge
   static Future<void> recharger(double montant, String description) async {
     final db = await DatabaseService.database;
     await db.insert('recharges', {
@@ -37,7 +58,7 @@ class FinanceService {
     });
   }
 
-  // Ajouter une dépense
+  // 6. Ajouter une dépense
   static Future<void> depenser(double montant, String description) async {
     final db = await DatabaseService.database;
     await db.insert('depenses', {
@@ -48,7 +69,7 @@ class FinanceService {
     });
   }
 
-  // Ajouter une vente (simplifiée)
+  // 7. Ajouter une vente
   static Future<void> vendre(double montantTotal, String modePaiement) async {
     final db = await DatabaseService.database;
     await db.insert('ventes', {
