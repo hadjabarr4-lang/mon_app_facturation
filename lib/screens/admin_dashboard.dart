@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 // ⚠️ N'oubliez pas de remettre vos vrais imports ici si nécessaire
 // import '../stock/stock_screen.dart';
 // import '../vente/vente_screen.dart';
+import 'stock/produits_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({Key? key}) : super(key: key);
@@ -34,7 +35,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     _screens = [
       _buildDashboardContent(), // Index 0 : Le dashboard
       // ⚠️ REMPLACEZ CES WIDGETS PAR VOS VRAIS ÉCRANS (ex: const StockScreen())
-      const Center(child: Text("Écran Produits")), 
+      const ProduitScreen(),
       const Center(child: Text("Écran Catégories")), 
       const Center(child: Text("Écran Stock")), 
       const Center(child: Text("Écran Ventes")), 
