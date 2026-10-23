@@ -62,7 +62,7 @@ class _ProduitScreenState extends State<ProduitScreen> {
       categorie: _categorieSelectionnee,
       prixAchat: double.tryParse(_prixAchatController.text) ?? 0.0,
       prixVente: double.tryParse(_prixVenteController.text) ?? 0.0,
-      stock: int.tryParse(_stockController.text) ?? 0,
+      quantite: int.tryParse(_stockController.text) ?? 0,
       seuilAlerte: int.tryParse(_seuilController.text) ?? 5,
     );
 
@@ -211,10 +211,10 @@ class _ProduitScreenState extends State<ProduitScreen> {
                           return DataRow(cells: [
                             const DataCell(Icon(Icons.inventory, color: Colors.grey, size: 30)),
                             DataCell(Text(produit.nom, style: const TextStyle(fontWeight: FontWeight.bold))),
-                            DataCell(Text(produit.categorie)),
+                            DataCell(Text(produit.categorie ?? 'Non définie')),
                             DataCell(Text('${produit.prixAchat.toStringAsFixed(0)} Fcfa')),
                             DataCell(Text('${produit.prixVente.toStringAsFixed(0)} Fcfa')),
-                            DataCell(Text(produit.stock.toString())),
+                            DataCell(Text(produit.quantite.toString())),
                             DataCell(
                               Row(
                                 children: [
