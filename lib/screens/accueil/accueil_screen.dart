@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/finance_service.dart';
-
+import '../vente/vente_screen.dart';
 class AccueilScreen extends StatefulWidget {
   const AccueilScreen({Key? key}) : super(key: key);
 
