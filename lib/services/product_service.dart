@@ -38,4 +38,11 @@ class ProductService {
       [quantiteVendue, idProduit]
     );
   }
+  // Fonction pour chercher un produit par son code-barre (Scannette)
+static Future<Produit?> parCodeBarre(String code) async {
+  final db = await DatabaseService.database;
+  final rows = await db.query('produits', where: 'code_barre = ?', whereArgs: [code]);
+  if (rows.isEmpty) return null;
+  return Produit.fromMap(rows.first);
+}
 }
