@@ -14,7 +14,7 @@ class DatabaseService {
     final path = join(await getDatabasesPath(), 'mon_app.db');
     return await openDatabase(
       path,
-      version: 3, // <--- Version 3
+      version: 4, // <--- Version 4 (pour la table achats)
       onCreate: (db, version) async {
         // 1. Table Utilisateurs
         await db.execute('''
@@ -79,8 +79,23 @@ class DatabaseService {
             date TEXT
           )
         ''');
+
+        // 7. Table Achats (LA NOUVELLE TABLE)
+        await db.execute('''
+          CREATE TABLE achats(
+            id TEXT PRIMARY KEY,
+            produit_id TEXT,
+            produit_nom TEXT,
+            quantite INTEGER,
+            prix_unitaire REAL,
+            total REAL,
+            fournisseur TEXT,
+            date TEXT
+          )
+        ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
+        // Mise à jour depuis la version 1 (ajout de categories)
         if (oldVersion < 2) {
           await db.execute('''
             CREATE TABLE categories(
@@ -91,6 +106,7 @@ class DatabaseService {
           ''');
         }
         
+        // Mise à jour depuis la version 2 (ajout de recharges, depenses, ventes)
         if (oldVersion < 3) {
           await db.execute('''
             CREATE TABLE recharges(
@@ -113,6 +129,22 @@ class DatabaseService {
               id TEXT PRIMARY KEY,
               montant_total REAL,
               mode_paiement TEXT,
+              date TEXT
+            )
+          ''');
+        }
+
+        // Mise à jour depuis la version 3 (ajout de achats)
+        if (oldVersion < 4) {
+          await db.execute('''
+            CREATE TABLE achats(
+              id TEXT PRIMARY KEY,
+              produit_id TEXT,
+              produit_nom TEXT,
+              quantite INTEGER,
+              prix_unitaire REAL,
+              total REAL,
+              fournisseur TEXT,
               date TEXT
             )
           ''');
