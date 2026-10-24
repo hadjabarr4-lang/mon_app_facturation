@@ -289,23 +289,19 @@ class _VenteScreenState extends State<VenteScreen> {
 
             // Type de vente
             const Text("Type de vente", style: TextStyle(fontWeight: FontWeight.bold)),
-            Row(
-              children: [
-                Radio<String>(
-                  value: 'Normal',
-                  groupValue: _typeVente,
-                  onChanged: (val) => setState(() => _typeVente = val!),
-                ),
-                const Text('Normal'),
-                const SizedBox(width: 20),
-                Radio<String>(
-                  value: 'Crédit',
-                  groupValue: _typeVente,
-                  onChanged: (val) => setState(() => _typeVente = val!),
-                ),
-                const Text('Crédit'),
-              ],
-            ),
+            RadioGroup<String>(
+  groupValue: _typeVente,
+  onChanged: (val) => setState(() => _typeVente = val!),
+  child: const Row(
+    children: [
+      Radio<String>(value: 'Normal'),
+      Text('Normal'),
+      SizedBox(width: 20),
+      Radio<String>(value: 'Crédit'),
+      Text('Crédit'),
+    ],
+  ),
+),
 
             // Modalité
             const Text("Modalité de paiement", style: TextStyle(fontWeight: FontWeight.bold)),
