@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
-// ⚠️ N'oubliez pas de remettre vos vrais imports ici si nécessaire
-// import '../stock/stock_screen.dart';
-// import '../vente/vente_screen.dart';
+import 'package:fl_chart/fl_chart.dart';
+import '../services/finance_service.dart';
+import '../services/product_service.dart';
 import 'stock/produits_screen.dart';
 import 'stock/categorie_screen.dart';
 import 'stock/stock_screen.dart';
+import 'vente/vente_screen.dart';
+
+// ⚠️ VÉRIFIE BIEN CES IMPORTS SELON TES DOSSIERS
+// import 'stock/produits_screen.dart';
+// import 'stock/stock_screen.dart';
+// import 'vente/vente_screen.dart';
+// import 'categorie_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({Key? key}) : super(key: key);
@@ -15,8 +22,15 @@ class AdminDashboard extends StatefulWidget {
 
 class _AdminDashboardState extends State<AdminDashboard> {
   int _selectedIndex = 0;
+  bool _isDashboardLoading = true;
 
-  // Liste des menus
+  // Variables pour les stats
+  double _recettesJour = 0;
+  double _recettesMois = 0;
+  int _nbProduits = 0;
+  int _nbAlertes = 0;
+  List<Map<String, dynamic>> _ventes = [];
+
   final List<Map<String, dynamic>> _menuItems = [
     {'title': 'Dashboard', 'icon': Icons.dashboard},
     {'title': 'Produits', 'icon': Icons.inventory_2},
@@ -28,23 +42,44 @@ class _AdminDashboardState extends State<AdminDashboard> {
     {'title': 'Utilisateurs', 'icon': Icons.people},
   ];
 
-  // Liste des écrans
   late List<Widget> _screens;
 
   @override
   void initState() {
     super.initState();
+    _chargerDashboard();
+    
     _screens = [
-      _buildDashboardContent(), // Index 0 : Le dashboard
-      // ⚠️ REMPLACEZ CES WIDGETS PAR VOS VRAIS ÉCRANS (ex: const StockScreen())
-      const ProduitScreen(),
-      const CategorieScreen(),
-      const StockScreen(), 
-      const Center(child: Text("Écran Ventes")), 
-      const Center(child: Text("Écran Achats")), 
-      const Center(child: Text("Écran Rapports")), 
-      const Center(child: Text("Écran Utilisateurs")), 
-    ];
+  _buildDashboardContent(), // Index 0
+  const ProduitScreen(),    // Index 1 : Produits
+  const CategorieScreen(),  // Index 2 : Catégories
+  const StockScreen(),      // Index 3 : Stock
+  const VenteScreen(),      // Index 4 : Ventes
+  const Center(child: Text("Écran Achats")), // À faire plus tard
+  const Center(child: Text("Écran Rapports")), // À faire plus tard
+  const Center(child: Text("Écran Utilisateurs")), // À faire plus tard
+];
+  }
+
+  Future<void> _chargerDashboard() async {
+    try {
+      final rJour = await FinanceService.recettesDuJour();
+      final rMois = await FinanceService.recettesDuMois();
+      final produits = await ProductService.tous();
+      final ventes = await FinanceService.toutesLesVentes();
+
+      setState(() {
+        _recettesJour = rJour;
+        _recettesMois = rMois;
+        _nbProduits = produits.length;
+        _nbAlertes = produits.where((p) => p.quantite <= p.seuilAlerte).length;
+        _ventes = ventes;
+        _isDashboardLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isDashboardLoading = false);
+      debugPrint("Erreur dashboard: $e");
+    }
   }
 
   @override
@@ -74,9 +109,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  // ==========================================
-  // MENU LATÉRAL
-  // ==========================================
+  // --- MENU LATÉRAL ---
   Widget _buildSidebar(BuildContext context) {
     return Material(
       color: const Color(0xFF1E1E2C),
@@ -114,29 +147,25 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         _selectedIndex = index;
                       });
                       if (MediaQuery.of(context).size.width < 800) {
-                        Navigator.pop(context); 
+                        Navigator.pop(context);
                       }
                     },
                   );
                 },
               ),
             ),
-            ListTile(
-              leading: const Icon(Icons.logout, color: Colors.redAccent),
-              title: const Text('Déconnexion', style: TextStyle(color: Colors.redAccent)),
-              onTap: () {},
-            ),
-            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  // ==========================================
-  // CONTENU DU DASHBOARD
-  // ==========================================
+  // --- CONTENU DU DASHBOARD ---
   Widget _buildDashboardContent() {
+    if (_isDashboardLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16.0),
       child: Column(
@@ -148,49 +177,69 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
           const SizedBox(height: 20),
 
-          // Les 4 cartes avec les montants remis à 0 FCFA
+          // 1. CARTES STATS
           Wrap(
             spacing: 16.0,
             runSpacing: 16.0,
             children: [
-              _buildStatCard('RECETTES DU JOUR', '0 FCFA', Colors.blue),
-              _buildStatCard('RECETTES DU MOIS', '0 FCFA', Colors.blueAccent),
-              _buildStatCard('PRODUITS', '0', Colors.orange),
-              _buildStatCard('ALERTES STOCK', '0', Colors.redAccent),
+              _buildStatCard('RECETTES DU JOUR', '${_recettesJour.toStringAsFixed(0)} FCFA', Colors.blue),
+              _buildStatCard('RECETTES DU MOIS', '${_recettesMois.toStringAsFixed(0)} FCFA', Colors.blueAccent),
+              _buildStatCard('PRODUITS', '$_nbProduits', Colors.orange),
+              _buildStatCard('ALERTES STOCK', '$_nbAlertes', Colors.redAccent),
             ],
           ),
           
           const SizedBox(height: 24),
 
+          // 2. GRAPHIQUE
           const Text(
             'Évolution des ventes (7 derniers jours)',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
-          
-          // Emplacement de votre graphique
           Container(
-            height: 180,
-            width: double.infinity,
+            height: 200,
+            padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: Colors.grey.shade300),
             ),
-            child: const Center(
-              child: Text("[ Emplacement de votre graphique ]", style: TextStyle(color: Colors.grey)),
+            child: LineChart(
+              LineChartData(
+                gridData: const FlGridData(show: true, drawVerticalLine: false),
+                titlesData: const FlTitlesData(
+                  show: true,
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                borderData: FlBorderData(show: false),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: const [
+                      FlSpot(0, 3), FlSpot(1, 1), FlSpot(2, 4), 
+                      FlSpot(3, 2), FlSpot(4, 5), FlSpot(5, 3), FlSpot(6, 4),
+                    ],
+                    isCurved: true,
+                    color: Colors.blue,
+                    barWidth: 4,
+                    dotData: const FlDotData(show: true),
+                    belowBarData: BarAreaData(show: true, color: Colors.blue.withOpacity(0.1)),
+                  ),
+                ],
+              ),
             ),
           ),
 
           const SizedBox(height: 24),
 
+          // 3. TABLEAU DES VENTES
           const Text(
             'Historique des dernières ventes',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 12),
 
-          // Tableau avec défilement horizontal pour mobile
           Container(
             width: double.infinity,
             decoration: BoxDecoration(
@@ -208,27 +257,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
                   DataColumn(label: Text('TOTAL', style: TextStyle(fontWeight: FontWeight.bold))),
                   DataColumn(label: Text('MODE', style: TextStyle(fontWeight: FontWeight.bold))),
                   DataColumn(label: Text('DATE', style: TextStyle(fontWeight: FontWeight.bold))),
-                  DataColumn(label: Text('ACTION', style: TextStyle(fontWeight: FontWeight.bold))),
                 ],
-                rows: [
-                  // Ligne d'exemple avec 0 FCFA
-                  DataRow(cells: [
-                    const DataCell(Text('REC-001')),
-                    const DataCell(Text('Admin')),
-                    const DataCell(Text('0 FCFA')), // Prix remis à 0
-                    const DataCell(Text('Espèce')),
-                    const DataCell(Text('--/--/----')),
-                    DataCell(ElevatedButton(onPressed: (){}, child: const Text('Reçu'))),
-                  ]),
-                  DataRow(cells: [
-                    const DataCell(Text('REC-002')),
-                    const DataCell(Text('Admin')),
-                    const DataCell(Text('0 FCFA')), // Prix remis à 0
-                    const DataCell(Text('Mobile')),
-                    const DataCell(Text('--/--/----')),
-                    DataCell(ElevatedButton(onPressed: (){}, child: const Text('Reçu'))),
-                  ]),
-                ],
+                rows: _ventes.map((vente) {
+                  final date = vente['date'] != null 
+                      ? vente['date'].toString().substring(0, 16).replaceAll('T', ' ') 
+                      : '--/--/----';
+                  final idCourt = vente['id'] != null && vente['id'].toString().length > 5 
+                      ? vente['id'].toString().substring(vente['id'].toString().length - 5) 
+                      : vente['id'].toString();
+                      
+                  return DataRow(cells: [
+                    DataCell(Text(idCourt)),
+                    const DataCell(Text('Admin')), 
+                    DataCell(Text('${(vente['montant_total'] as num).toStringAsFixed(0)} FCFA')),
+                    DataCell(Text(vente['mode_paiement'] ?? 'Espèces')),
+                    DataCell(Text(date)),
+                  ]);
+                }).toList(),
               ),
             ),
           ),
@@ -238,7 +283,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     );
   }
 
-  // Carte réutilisable
+  // Carte de statistique
   Widget _buildStatCard(String title, String value, Color color) {
     return Container(
       width: 160,
