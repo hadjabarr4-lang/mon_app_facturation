@@ -132,7 +132,20 @@ class _AccueilScreenState extends State<AccueilScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                     children: [
                       _buildActionBtn("Recharger", Icons.add_card, Colors.green, () => _afficherFenetre('Recharger la caisse', 'recharger')),
-                      _buildActionBtn("Vendre", Icons.point_of_sale, Colors.blue, () => _afficherFenetre('Nouvelle vente', 'vendre')),
+                      _buildActionBtn(
+  "Vendre", 
+  Icons.point_of_sale, 
+  Colors.blue, 
+  () async {
+    // On ouvre le grand écran de vente
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const VenteScreen()), 
+    );
+    // On met à jour le solde en revenant
+    _charger(); 
+  }
+),
                       _buildActionBtn("Dépense", Icons.receipt_long, Colors.orange, () => _afficherFenetre('Nouvelle dépense', 'depense')),
                     ],
                   ),
