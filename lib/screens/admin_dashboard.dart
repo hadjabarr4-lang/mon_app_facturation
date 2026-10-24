@@ -11,6 +11,7 @@ import 'stock/stock_screen.dart';
 import 'vente/vente_screen.dart';
 import 'stock/achat_screen.dart';
 import 'finance/rapport_screen.dart';
+import 'utilisateur_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({Key? key}) : super(key: key);
@@ -86,7 +87,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
       case 6:
         return const RapportScreen();
       case 7:
-        return const Center(child: Text("Écran Utilisateurs (À venir)"));
+        return const UtilisateurScreen();
       default:
         return _buildDashboardContent();
     }

@@ -14,14 +14,16 @@ class DatabaseService {
     final path = join(await getDatabasesPath(), 'mon_app.db');
     return await openDatabase(
       path,
-      version: 4, // <--- Version 4 (pour la table achats)
+      version: 5, // <--- Version 5
       onCreate: (db, version) async {
-        // 1. Table Utilisateurs
+        // 1. Table Utilisateurs (MISE À JOUR)
         await db.execute('''
           CREATE TABLE utilisateurs(
             id TEXT PRIMARY KEY,
             nom TEXT,
-            email TEXT UNIQUE
+            email TEXT UNIQUE,
+            mot_de_passe TEXT,
+            role TEXT
           )
         ''');
 
@@ -80,7 +82,7 @@ class DatabaseService {
           )
         ''');
 
-        // 7. Table Achats (LA NOUVELLE TABLE)
+        // 7. Table Achats
         await db.execute('''
           CREATE TABLE achats(
             id TEXT PRIMARY KEY,
@@ -95,7 +97,6 @@ class DatabaseService {
         ''');
       },
       onUpgrade: (db, oldVersion, newVersion) async {
-        // Mise à jour depuis la version 1 (ajout de categories)
         if (oldVersion < 2) {
           await db.execute('''
             CREATE TABLE categories(
@@ -105,8 +106,6 @@ class DatabaseService {
             )
           ''');
         }
-        
-        // Mise à jour depuis la version 2 (ajout de recharges, depenses, ventes)
         if (oldVersion < 3) {
           await db.execute('''
             CREATE TABLE recharges(
@@ -133,8 +132,6 @@ class DatabaseService {
             )
           ''');
         }
-
-        // Mise à jour depuis la version 3 (ajout de achats)
         if (oldVersion < 4) {
           await db.execute('''
             CREATE TABLE achats(
@@ -146,6 +143,19 @@ class DatabaseService {
               total REAL,
               fournisseur TEXT,
               date TEXT
+            )
+          ''');
+        }
+        // MISE À JOUR VERSION 5 (On recrée la table utilisateurs avec les bons champs)
+        if (oldVersion < 5) {
+          await db.execute('DROP TABLE IF EXISTS utilisateurs');
+          await db.execute('''
+            CREATE TABLE utilisateurs(
+              id TEXT PRIMARY KEY,
+              nom TEXT,
+              email TEXT UNIQUE,
+              mot_de_passe TEXT,
+              role TEXT
             )
           ''');
         }
