@@ -2,16 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/finance_service.dart';
 import '../services/product_service.dart';
+
+// ⚠️ VÉRIFIE BIEN CES IMPORTS (Lignes 5 à 8)
+// Si tes fichiers sont nommés différemment, adapte-les ici.
 import 'stock/produits_screen.dart';
 import 'stock/categorie_screen.dart';
 import 'stock/stock_screen.dart';
 import 'vente/vente_screen.dart';
-
-// ⚠️ VÉRIFIE BIEN CES IMPORTS SELON TES DOSSIERS
-// import 'stock/produits_screen.dart';
-// import 'stock/stock_screen.dart';
-// import 'vente/vente_screen.dart';
-// import 'categorie_screen.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({Key? key}) : super(key: key);
@@ -42,23 +39,10 @@ class _AdminDashboardState extends State<AdminDashboard> {
     {'title': 'Utilisateurs', 'icon': Icons.people},
   ];
 
-  late List<Widget> _screens;
-
   @override
   void initState() {
     super.initState();
     _chargerDashboard();
-    
-    _screens = [
-  _buildDashboardContent(), // Index 0
-  const ProduitScreen(),    // Index 1 : Produits
-  const CategorieScreen(),  // Index 2 : Catégories
-  const StockScreen(),      // Index 3 : Stock
-  const VenteScreen(),      // Index 4 : Ventes
-  const Center(child: Text("Écran Achats")), // À faire plus tard
-  const Center(child: Text("Écran Rapports")), // À faire plus tard
-  const Center(child: Text("Écran Utilisateurs")), // À faire plus tard
-];
   }
 
   Future<void> _chargerDashboard() async {
@@ -82,6 +66,30 @@ class _AdminDashboardState extends State<AdminDashboard> {
     }
   }
 
+  // 👇 CETTE FONCTION REMPLACE L'ANCIENNE LISTE _screens 👇
+  Widget _getSelectedScreen() {
+    switch (_selectedIndex) {
+      case 0:
+        return _buildDashboardContent();
+      case 1:
+        return const ProduitScreen(); 
+      case 2:
+        return const CategorieScreen(); 
+      case 3:
+        return const StockScreen();
+      case 4:
+        return const VenteScreen();
+      case 5:
+        return const Center(child: Text("Écran Achats (À venir)"));
+      case 6:
+        return const Center(child: Text("Écran Rapports (À venir)"));
+      case 7:
+        return const Center(child: Text("Écran Utilisateurs (À venir)"));
+      default:
+        return _buildDashboardContent();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDesktop = MediaQuery.of(context).size.width >= 800;
@@ -101,7 +109,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
           Expanded(
             child: Container(
               color: const Color(0xFFF5F6F8),
-              child: _screens[_selectedIndex],
+              child: _getSelectedScreen(), // 👈 Utilisation de la nouvelle fonction
             ),
           ),
         ],
