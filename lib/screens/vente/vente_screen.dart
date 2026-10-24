@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
-import '../../services/database_service.dart';
 import '../../services/product_service.dart';
 import '../../services/finance_service.dart';
-import '../../utils/format.dart';
 import '../../models/produit.dart';
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 
 class VenteScreen extends StatefulWidget {
   const VenteScreen({Key? key}) : super(key: key);
+
   @override
   State<VenteScreen> createState() => _VenteScreenState();
 }
@@ -20,222 +21,361 @@ class LigneVente {
 }
 
 class _VenteScreenState extends State<VenteScreen> {
-  final _clientNom = TextEditingController();
-  final _remarque = TextEditingController();
-  final _acompte = TextEditingController(text: '0');
-  final _recherche = TextEditingController();
+  // Contrôleurs
+  final _clientNomController = TextEditingController();
+  final _searchController = TextEditingController();
+  final _acompteController = TextEditingController(text: '0');
+  final _remarqueController = TextEditingController();
 
-  final List<LigneVente> _lignes = [];
-  String _typeVente = 'normal';
-  String _modePaiement = 'espèces';
+  // Variables d'état
+  List<Produit> _produits = [];
   List<Produit> _produitsFiltres = [];
+  List<LigneVente> _panier = [];
+  String _modePaiement = 'Espèces';
+  String _typeVente = 'Normal';
 
-  double get _total => _lignes.fold(0, (s, l) => s + l.total);
-
-  Future<void> _chercher(String q) async {
-    final tous = await ProductService.tous();
-    setState(() => _produitsFiltres = tous.where((p) => p.nom.toLowerCase().contains(q.toLowerCase())).toList());
+  @override
+  void initState() {
+    super.initState();
+    _chargerProduits();
+    _searchController.addListener(_filtrerProduits);
   }
 
-  void _ajouterProduit(Produit p) {
+  @override
+  void dispose() {
+    _clientNomController.dispose();
+    _searchController.dispose();
+    _acompteController.dispose();
+    _remarqueController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _chargerProduits() async {
+    try {
+      final prods = await ProductService.tous();
+      setState(() {
+        _produits = prods;
+        _produitsFiltres = [];
+      });
+    } catch (e) {
+      debugPrint("Erreur de chargement des produits : $e");
+    }
+  }
+
+  void _filtrerProduits() {
+    final query = _searchController.text.toLowerCase();
+    if (query.isEmpty) {
+      setState(() => _produitsFiltres = []);
+    } else {
+      setState(() {
+        _produitsFiltres = _produits
+            .where((p) => p.nom.toLowerCase().contains(query) && p.quantite > 0)
+            .toList();
+      });
+    }
+  }
+
+  void _ajouterAuPanier(Produit produit) {
     setState(() {
-      final existant = _lignes.indexWhere((l) => l.produit.id == p.id);
-      if (existant >= 0) {
-        _lignes[existant].quantite++;
+      final index = _panier.indexWhere((item) => item.produit.id == produit.id);
+      if (index != -1) {
+        // Le produit est déjà dans le panier
+        if (_panier[index].quantite < produit.quantite) {
+          _panier[index].quantite++;
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Stock maximum atteint pour ce produit.')),
+          );
+        }
       } else {
-        _lignes.add(LigneVente(p, 1));
+        // Nouveau produit
+        _panier.add(LigneVente(produit, 1));
       }
+      _searchController.clear();
       _produitsFiltres = [];
-      _recherche.clear();
     });
   }
 
-  Future<void> _valider() async {
-    if (_lignes.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ajoutez au moins un produit')));
+  double get _total {
+    return _panier.fold(0, (sum, item) => sum + item.total);
+  }
+
+  double get _resteAPayer {
+    final acompte = double.tryParse(_acompteController.text) ?? 0;
+    final reste = _total - acompte;
+    return reste < 0 ? 0 : reste;
+  }
+
+  Future<void> _validerVente() async {
+    if (_panier.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Le panier est vide !'), backgroundColor: Colors.red),
+      );
       return;
     }
-    final acompte = double.tryParse(_acompte.text) ?? 0;
-    final reste = _total - acompte;
-    final idVente = const Uuid().v4();
-    final db = await DatabaseService.database;
 
-    await db.insert('ventes', {
-      'id': idVente,
-      'numero': 'V-${DateTime.now().millisecondsSinceEpoch}',
-      'client_id': '',
-      'client_nom': _clientNom.text.isEmpty ? 'Client comptoir' : _clientNom.text,
-      'type_vente': _typeVente,
-      'mode_paiement': _modePaiement,
-      'montant_total': _total,
-      'acompte': acompte,
-      'reste_a_payer': reste,
-      'statut': reste <= 0 ? 'payee' : 'credit',
-      'remarque': _remarque.text,
-      'date': DateTime.now().toIso8601String(),
-    });
+    try {
+      // 1. Enregistrer la vente dans la caisse
+      await FinanceService.vendre(_total, _modePaiement);
 
-    for (var l in _lignes) {
-      await db.insert('lignes_vente', {
-        'id': const Uuid().v4(),
-        'vente_id': idVente,
-        'produit_id': l.produit.id,
-        'produit_nom': l.produit.nom,
-        'prix_unitaire': l.produit.prixVente,
-        'quantite': l.quantite,
-        'total': l.total,
-      });
-      // Décrémenter le stock
-      await ProductService.miseAJourQuantite(l.produit.id!, l.produit.quantite - l.quantite);
-    }
+      // 2. Déduire le stock pour chaque produit
+      for (var item in _panier) {
+        await ProductService.deduireStock(item.produit.id!, item.quantite);
+      }
 
-    if (mounted) {
-      _afficherRecu(idVente, acompte, reste);
+      // 3. Générer le reçu PDF
+      await _genererRecu();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vente validée avec succès !'), backgroundColor: Colors.green),
+        );
+        Navigator.pop(context); // Retour à l'accueil
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+      );
     }
   }
 
-  void _afficherRecu(String idVente, double acompte, double reste) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('✅ Vente enregistrée'),
-        content: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
+  Future<void> _genererRecu() async {
+    final pdf = pw.Document();
+    final client = _clientNomController.text.isEmpty ? "Client Inconnu" : _clientNomController.text;
+
+    pdf.addPage(
+      pw.Page(
+        pageFormat: PdfPageFormat.a5,
+        build: (pw.Context context) {
+          return pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              Text('Client : ${_clientNom.text.isEmpty ? "Comptoir" : _clientNom.text}'),
-              Text('Type : ${_typeVente == "normal" ? "Normal" : "Crédit"}'),
-              Text('Mode : $_modePaiement'),
-              const Divider(),
-              ..._lignes.map((l) => Text('${l.produit.nom} x${l.quantite} = ${Fmt.fcfa(l.total)}')),
-              const Divider(),
-              Text('TOTAL : ${Fmt.fcfa(_total)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-              Text('Acompte : ${Fmt.fcfa(acompte)}'),
-              Text('Reste à payer : ${Fmt.fcfa(reste)}', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
-              if (_remarque.text.isNotEmpty) ...[
-                const Divider(),
-                Text('Remarque : ${_remarque.text}'),
-              ],
+              pw.Center(child: pw.Text('MON APP FACTURATION', style: pw.TextStyle(fontSize: 20, fontWeight: pw.FontWeight.bold))),
+              pw.SizedBox(height: 10),
+              pw.Text('Client : $client'),
+              pw.Text('Date : ${DateTime.now().toString().substring(0, 16)}'),
+              pw.Divider(),
+              pw.Text('Détails :', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+              pw.SizedBox(height: 5),
+              ..._panier.map((item) {
+                return pw.Row(
+                  mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                  children: [
+                    pw.Text('${item.quantite}x ${item.produit.nom}'),
+                    pw.Text('${item.total.toStringAsFixed(0)} FCFA'),
+                  ],
+                );
+              }),
+              pw.Divider(),
+              pw.SizedBox(height: 5),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Text('TOTAL :', style: pw.TextStyle(fontWeight: pw.FontWeight.bold)),
+                  pw.Text('${_total.toStringAsFixed(0)} FCFA', style: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 16)),
+                ],
+              ),
+              pw.SizedBox(height: 20),
+              pw.Center(child: pw.Text('Merci de votre visite !')),
             ],
-          ),
-        ),
-        actions: [
-          ElevatedButton(onPressed: () { Navigator.pop(context); Navigator.pop(context); }, child: const Text('Fermer')),
-        ],
+          );
+        },
       ),
+    );
+
+    await Printing.layoutPdf(
+      onLayout: (PdfPageFormat format) async => pdf.save(),
+      name: 'Recu_$client.pdf',
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final acompte = double.tryParse(_acompte.text) ?? 0;
-    final reste = _total - acompte;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F7FA),
-      appBar: AppBar(title: const Text('Nouvelle vente'), backgroundColor: const Color(0xFF1E293B), iconTheme: const IconThemeData(color: Colors.white)),
+      backgroundColor: const Color(0xFFF5F6F8),
+      appBar: AppBar(
+        title: const Text("Nouvelle vente", style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF1E1E2C),
+        iconTheme: const IconThemeData(color: Colors.white),
+      ),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // Client
-            TextField(controller: _clientNom, decoration: const InputDecoration(labelText: 'Nom du client', border: OutlineInputBorder(), filled: true, fillColor: Colors.white)),
-            const SizedBox(height: 12),
-
-            // Recherche produit
             TextField(
-              controller: _recherche,
-              onChanged: _chercher,
-              decoration: const InputDecoration(hintText: 'Rechercher un produit à ajouter', prefixIcon: Icon(Icons.search), border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              controller: _clientNomController,
+              decoration: const InputDecoration(labelText: 'Nom du client', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
             ),
+            const SizedBox(height: 16),
+
+            // Recherche
+            TextField(
+              controller: _searchController,
+              decoration: const InputDecoration(
+                hintText: 'Rechercher un produit à ajouter',
+                prefixIcon: Icon(Icons.search),
+                border: OutlineInputBorder(),
+                filled: true,
+                fillColor: Colors.white,
+              ),
+            ),
+            
+            // Résultats de recherche
             if (_produitsFiltres.isNotEmpty)
               Container(
-                margin: const EdgeInsets.only(top: 4),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8)),
-                child: Column(
-                  children: _produitsFiltres.take(5).map((p) => ListTile(
-                    title: Text(p.nom),
-                    subtitle: Text('${Fmt.fcfa(p.prixVente)} • Stock: ${p.quantite}'),
-                    onTap: () => _ajouterProduit(p),
-                  )).toList(),
+                color: Colors.white,
+                constraints: const BoxConstraints(maxHeight: 150),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _produitsFiltres.length,
+                  itemBuilder: (context, index) {
+                    final p = _produitsFiltres[index];
+                    return ListTile(
+                      title: Text(p.nom),
+                      subtitle: Text('Stock: ${p.quantite} | ${p.prixVente} FCFA'),
+                      onTap: () => _ajouterAuPanier(p),
+                    );
+                  },
                 ),
               ),
-            const SizedBox(height: 15),
 
-            // Lignes
-            ..._lignes.map((l) => Card(
-              child: ListTile(
-                title: Text(l.produit.nom),
-                subtitle: Text('${Fmt.fcfa(l.produit.prixVente)} x ${l.quantite}'),
-                trailing: Row(
-                  mainAxisSize: MainAxisSize.min,
+            const SizedBox(height: 16),
+            
+            // Panier
+            const Text("Panier", style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+            if (_panier.isEmpty)
+               const Padding(
+                 padding: EdgeInsets.all(8.0),
+                 child: Text("Aucun article dans le panier", style: TextStyle(color: Colors.grey)),
+               )
+            else
+              ..._panier.map((item) => Card(
+                child: ListTile(
+                  title: Text(item.produit.nom),
+                  subtitle: Text('${item.total.toStringAsFixed(0)} FCFA'),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle, color: Colors.red),
+                        onPressed: () {
+                          setState(() {
+                            if (item.quantite > 1) {
+                              item.quantite--;
+                            } else {
+                              _panier.remove(item);
+                            }
+                          });
+                        },
+                      ),
+                      Text('${item.quantite}'),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle, color: Colors.green),
+                        onPressed: () {
+                          if (item.quantite < item.produit.quantite) {
+                            setState(() => item.quantite++);
+                          }
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              )),
+
+            const SizedBox(height: 16),
+            const Divider(),
+
+            // Type de vente
+            const Text("Type de vente", style: TextStyle(fontWeight: FontWeight.bold)),
+            Row(
+              children: [
+                Radio<String>(
+                  value: 'Normal',
+                  groupValue: _typeVente,
+                  onChanged: (val) => setState(() => _typeVente = val!),
+                ),
+                const Text('Normal'),
+                const SizedBox(width: 20),
+                Radio<String>(
+                  value: 'Crédit',
+                  groupValue: _typeVente,
+                  onChanged: (val) => setState(() => _typeVente = val!),
+                ),
+                const Text('Crédit'),
+              ],
+            ),
+
+            // Modalité
+            const Text("Modalité de paiement", style: TextStyle(fontWeight: FontWeight.bold)),
+            DropdownButtonFormField<String>(
+              value: _modePaiement,
+              decoration: const InputDecoration(border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              items: ['Espèces', 'Mobile Money', 'Carte'].map((mode) => DropdownMenuItem(value: mode, child: Text(mode))).toList(),
+              onChanged: (val) => setState(() => _modePaiement = val!),
+            ),
+            const SizedBox(height: 16),
+
+            // Acompte et Remarque
+            TextField(
+              controller: _acompteController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(labelText: 'Acompte à payer (FCFA)', border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
+              onChanged: (val) => setState(() {}),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _remarqueController,
+              decoration: const InputDecoration(labelText: 'Remarque / Instructions client', border: OutlineInputBorder(), filled: true, fillColor: Colors.white, alignLabelWithHint: true),
+              maxLines: 2,
+            ),
+
+            const SizedBox(height: 24),
+
+            // Résumé
+            Card(
+              elevation: 2,
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
                   children: [
-                    IconButton(icon: const Icon(Icons.remove_circle, color: Colors.red), onPressed: () => setState(() { if (l.quantite > 1) l.quantite--; else _lignes.remove(l); })),
-                    Text(Fmt.fcfa(l.total)),
-                    IconButton(icon: const Icon(Icons.add_circle, color: Colors.green), onPressed: () => setState(() => l.quantite++)),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Montant total', style: TextStyle(fontSize: 16)),
+                      Text('${_total.toStringAsFixed(0)} FCFA', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    ]),
+                    const SizedBox(height: 8),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Acompte'),
+                      Text('${(double.tryParse(_acompteController.text) ?? 0).toStringAsFixed(0)} FCFA'),
+                    ]),
+                    const Divider(),
+                    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                      const Text('Reste à payer', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                      Text('${_resteAPayer.toStringAsFixed(0)} FCFA', style: const TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 18)),
+                    ]),
                   ],
                 ),
               ),
-            )),
-
-            const SizedBox(height: 15),
-            // Type de vente
-            const Text('Type de vente', style: TextStyle(fontWeight: FontWeight.bold)),
-            Row(
-              children: [
-                Expanded(child: RadioListTile<String>(title: const Text('Normal'), value: 'normal', groupValue: _typeVente, onChanged: (v) => setState(() => _typeVente = v!))),
-                Expanded(child: RadioListTile<String>(title: const Text('Crédit'), value: 'credit', groupValue: _typeVente, onChanged: (v) => setState(() => _typeVente = v!))),
-              ],
             ),
 
-            // Mode de paiement
-            const Text('Modalité de paiement', style: TextStyle(fontWeight: FontWeight.bold)),
-            DropdownButtonFormField<String>(
-              value: _modePaiement,
-              items: const [
-                DropdownMenuItem(value: 'espèces', child: Text('Espèces')),
-                DropdownMenuItem(value: 'wave', child: Text('Wave')),
-                DropdownMenuItem(value: 'orange_money', child: Text('Orange Money')),
-                DropdownMenuItem(value: 'carte', child: Text('Carte bancaire')),
-              ],
-              onChanged: (v) => setState(() => _modePaiement = v!),
-              decoration: const InputDecoration(border: OutlineInputBorder(), filled: true, fillColor: Colors.white),
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
 
-            // Acompte
-            TextField(controller: _acompte, keyboardType: TextInputType.number, onChanged: (_) => setState(() {}), decoration: const InputDecoration(labelText: 'Acompte à payer (FCFA)', border: OutlineInputBorder(), filled: true, fillColor: Colors.white)),
-            const SizedBox(height: 12),
-
-            // Remarque
-            TextField(controller: _remarque, maxLines: 3, decoration: const InputDecoration(labelText: 'Remarque / Instructions client', border: OutlineInputBorder(), filled: true, fillColor: Colors.white)),
-            const SizedBox(height: 20),
-
-            // Résumé
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
-              child: Column(
-                children: [
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Montant total'), Text(Fmt.fcfa(_total), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18))]),
-                  const Divider(),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Acompte'), Text(Fmt.fcfa(acompte))]),
-                  Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [const Text('Reste à payer', style: TextStyle(color: Colors.red)), Text(Fmt.fcfa(reste), style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.red))]),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
+            // Bouton Valider
             SizedBox(
-              width: double.infinity, height: 55,
+              width: double.infinity,
+              height: 50,
               child: ElevatedButton.icon(
-                onPressed: _valider,
-                icon: const Icon(Icons.check),
-                label: const Text('Valider et générer le reçu', style: TextStyle(fontSize: 16)),
-                style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                onPressed: _validerVente,
+                icon: const Icon(Icons.check, color: Colors.white),
+                label: const Text('Valider et générer le reçu', style: TextStyle(fontSize: 16, color: Colors.white)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                ),
               ),
             ),
+            const SizedBox(height: 30),
           ],
         ),
       ),
