@@ -47,7 +47,13 @@ class FinanceService {
     return ca - dep;
   }
 
-  // 5. Ajouter une recharge
+  // 5. Récupérer les 5 dernières ventes pour l'affichage
+  static Future<List<Map<String, dynamic>>> dernieresVentes() async {
+    final db = await DatabaseService.database;
+    return await db.query('ventes', orderBy: 'date DESC', limit: 5);
+  }
+
+  // 6. Ajouter une recharge
   static Future<void> recharger(double montant, String description) async {
     final db = await DatabaseService.database;
     await db.insert('recharges', {
@@ -58,7 +64,7 @@ class FinanceService {
     });
   }
 
-  // 6. Ajouter une dépense
+  // 7. Ajouter une dépense
   static Future<void> depenser(double montant, String description) async {
     final db = await DatabaseService.database;
     await db.insert('depenses', {
@@ -69,7 +75,7 @@ class FinanceService {
     });
   }
 
-  // 7. Ajouter une vente
+  // 8. Ajouter une vente
   static Future<void> vendre(double montantTotal, String modePaiement) async {
     final db = await DatabaseService.database;
     await db.insert('ventes', {
