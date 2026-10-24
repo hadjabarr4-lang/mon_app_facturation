@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import '../../models/produit.dart'; 
-import '../../services/product_service.dart'; 
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import '../../models/produit.dart';
+import '../../services/product_service.dart';
 
 class ProduitScreen extends StatefulWidget {
   const ProduitScreen({Key? key}) : super(key: key);
@@ -21,6 +23,10 @@ class _ProduitScreenState extends State<ProduitScreen> {
   String _categorieSelectionnee = 'Alimentation';
   final List<String> _categories = ['Alimentation', 'Entretien', 'Hygiène', 'Boissons'];
 
+  // Variables pour l'image et la modification
+  String? _imagePathSelectionnee;
+  String? _idProduitEnModification;
+
   List<Produit> _listeProduits = [];
   bool _isLoading = true;
 
@@ -30,25 +36,48 @@ class _ProduitScreenState extends State<ProduitScreen> {
     _chargerProduits();
   }
 
-  // 🔄 LECTURE : Utilisation de votre fonction `tous()`
   Future<void> _chargerProduits() async {
     setState(() => _isLoading = true);
     try {
-      final produits = await ProductService.tous(); // <--- CORRIGÉ ICI
+      final produits = await ProductService.tous();
       setState(() {
         _listeProduits = produits;
         _isLoading = false;
       });
     } catch (e) {
       setState(() => _isLoading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur de chargement : $e')),
-      );
+      debugPrint('Erreur de chargement : $e');
     }
   }
 
-  // ➕ AJOUT : Utilisation de votre fonction `ajouter()`
-  Future<void> _ajouterProduit() async {
+  // 📸 Choisir une image
+  Future<void> _choisirImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    if (image != null) {
+      setState(() {
+        _imagePathSelectionnee = image.path;
+      });
+    }
+  }
+
+  // ✏️ Préparer la modification
+  void _preparerModification(Produit produit) {
+    setState(() {
+      _idProduitEnModification = produit.id;
+      _nomController.text = produit.nom;
+      _codeBarreController.text = produit.codeBarre ?? '';
+      _prixAchatController.text = produit.prixAchat.toString();
+      _prixVenteController.text = produit.prixVente.toString();
+      _stockController.text = produit.quantite.toString();
+      _seuilController.text = produit.seuilAlerte.toString();
+      _categorieSelectionnee = produit.categorie ?? 'Alimentation';
+      _imagePathSelectionnee = produit.imagePath;
+    });
+  }
+
+  // 💾 Enregistrer (Ajout ou Modification)
+  Future<void> _enregistrerProduit() async {
     if (_nomController.text.isEmpty || _prixVenteController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Veuillez remplir le nom et le prix de vente.')),
@@ -57,8 +86,10 @@ class _ProduitScreenState extends State<ProduitScreen> {
     }
 
     final nouveauProduit = Produit(
+      id: _idProduitEnModification, // Si null, c'est un ajout. Sinon, c'est une modif.
       nom: _nomController.text,
       codeBarre: _codeBarreController.text,
+      imagePath: _imagePathSelectionnee,
       categorie: _categorieSelectionnee,
       prixAchat: double.tryParse(_prixAchatController.text) ?? 0.0,
       prixVente: double.tryParse(_prixVenteController.text) ?? 0.0,
@@ -67,37 +98,36 @@ class _ProduitScreenState extends State<ProduitScreen> {
     );
 
     try {
-      await ProductService.ajouter(nouveauProduit); // <--- CORRIGÉ ICI
-      await _chargerProduits(); // On recharge la liste immédiatement
-
-      _nomController.clear();
-      _codeBarreController.clear();
-      _descriptionController.clear();
-      _prixAchatController.clear();
-      _prixVenteController.clear();
-      _stockController.text = '0';
-      _seuilController.text = '5';
+      if (_idProduitEnModification == null) {
+        await ProductService.ajouter(nouveauProduit);
+      } else {
+        await ProductService.modifier(nouveauProduit);
+      }
+      
+      await _chargerProduits(); 
+      _viderFormulaire();
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Produit ajouté avec succès !'), backgroundColor: Colors.green),
+        SnackBar(content: Text(_idProduitEnModification == null ? 'Produit ajouté !' : 'Produit modifié !'), backgroundColor: Colors.green),
       );
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de l\'ajout : $e')),
+        SnackBar(content: Text('Erreur : $e')),
       );
     }
   }
 
-  // 🗑️ SUPPRESSION : Utilisation de votre fonction `supprimer()`
-  Future<void> _supprimerProduit(String id) async {
-    try {
-      await ProductService.supprimer(id); // <--- CORRIGÉ ICI
-      await _chargerProduits(); // Mise à jour immédiate
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur lors de la suppression : $e')),
-      );
-    }
+  void _viderFormulaire() {
+    _nomController.clear();
+    _codeBarreController.clear();
+    _prixAchatController.clear();
+    _prixVenteController.clear();
+    _stockController.text = '0';
+    _seuilController.text = '5';
+    setState(() {
+      _imagePathSelectionnee = null;
+      _idProduitEnModification = null;
+    });
   }
 
   @override
@@ -126,9 +156,9 @@ class _ProduitScreenState extends State<ProduitScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      '+ Nouveau produit',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
+                    Text(
+                      _idProduitEnModification == null ? '+ Nouveau produit' : '✏️ Modifier le produit',
+                      style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.blue),
                     ),
                     const SizedBox(height: 16),
                     Wrap(
@@ -137,7 +167,6 @@ class _ProduitScreenState extends State<ProduitScreen> {
                       children: [
                         _buildTextField("Nom", _nomController, isDesktop),
                         _buildTextField("Code-barre", _codeBarreController, isDesktop),
-                        _buildTextField("Description", _descriptionController, isDesktop),
                         SizedBox(
                           width: isDesktop ? 350 : double.infinity,
                           child: DropdownButtonFormField<String>(
@@ -154,21 +183,49 @@ class _ProduitScreenState extends State<ProduitScreen> {
                       ],
                     ),
                     const SizedBox(height: 16),
-                    ElevatedButton.icon(
-                      onPressed: () {},
-                      icon: const Icon(Icons.photo),
-                      label: const Text("Choisir une photo"),
-                      style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade200, foregroundColor: Colors.black87),
+                    
+                    // Bouton Photo et aperçu
+                    Row(
+                      children: [
+                        ElevatedButton.icon(
+                          onPressed: _choisirImage,
+                          icon: const Icon(Icons.photo),
+                          label: const Text("Choisir une photo"),
+                          style: ElevatedButton.styleFrom(backgroundColor: Colors.grey.shade200, foregroundColor: Colors.black87),
+                        ),
+                        const SizedBox(width: 16),
+                        if (_imagePathSelectionnee != null)
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(8),
+                            child: Image.file(
+                              File(_imagePathSelectionnee!),
+                              width: 50, height: 50, fit: BoxFit.cover,
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _ajouterProduit,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.blue,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                      ),
-                      child: const Text('Enregistrer'),
+                    
+                    // Boutons Enregistrer / Annuler
+                    Row(
+                      children: [
+                        ElevatedButton(
+                          onPressed: _enregistrerProduit,
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
+                          ),
+                          child: Text(_idProduitEnModification == null ? 'Enregistrer' : 'Mettre à jour'),
+                        ),
+                        if (_idProduitEnModification != null) ...[
+                          const SizedBox(width: 16),
+                          TextButton(
+                            onPressed: _viderFormulaire,
+                            child: const Text('Annuler', style: TextStyle(color: Colors.red)),
+                          ),
+                        ]
+                      ],
                     ),
                   ],
                 ),
@@ -178,10 +235,7 @@ class _ProduitScreenState extends State<ProduitScreen> {
             const SizedBox(height: 30),
 
             // ================= LISTE DES PRODUITS =================
-            const Text(
-              'Liste des produits',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+            const Text('Liste des produits', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 12),
 
             _isLoading
@@ -202,30 +256,38 @@ class _ProduitScreenState extends State<ProduitScreen> {
                           DataColumn(label: Text('PHOTO')),
                           DataColumn(label: Text('NOM')),
                           DataColumn(label: Text('CATÉGORIE')),
-                          DataColumn(label: Text('PRIX ACHAT')),
                           DataColumn(label: Text('PRIX VENTE')),
                           DataColumn(label: Text('STOCK')),
                           DataColumn(label: Text('ACTIONS')),
                         ],
                         rows: _listeProduits.map((produit) {
                           return DataRow(cells: [
-                            const DataCell(Icon(Icons.inventory, color: Colors.grey, size: 30)),
+                            DataCell(
+                              produit.imagePath != null && File(produit.imagePath!).existsSync()
+                                  ? ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: Image.file(File(produit.imagePath!), width: 40, height: 40, fit: BoxFit.cover),
+                                    )
+                                  : const Icon(Icons.inventory, color: Colors.grey, size: 30),
+                            ),
                             DataCell(Text(produit.nom, style: const TextStyle(fontWeight: FontWeight.bold))),
                             DataCell(Text(produit.categorie ?? 'Non définie')),
-                            DataCell(Text('${produit.prixAchat.toStringAsFixed(0)} Fcfa')),
                             DataCell(Text('${produit.prixVente.toStringAsFixed(0)} Fcfa')),
                             DataCell(Text(produit.quantite.toString())),
                             DataCell(
                               Row(
                                 children: [
                                   TextButton(
-                                    onPressed: () {},
+                                    onPressed: () => _preparerModification(produit),
                                     style: TextButton.styleFrom(backgroundColor: Colors.orange, foregroundColor: Colors.white),
                                     child: const Text('Modifier'),
                                   ),
                                   const SizedBox(width: 8),
                                   TextButton(
-                                    onPressed: () => _supprimerProduit(produit.id!), 
+                                    onPressed: () async {
+                                      await ProductService.supprimer(produit.id!);
+                                      _chargerProduits();
+                                    },
                                     style: TextButton.styleFrom(backgroundColor: Colors.redAccent, foregroundColor: Colors.white),
                                     child: const Text('Suppr.'),
                                   ),
