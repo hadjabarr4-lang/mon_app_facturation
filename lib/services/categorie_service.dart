@@ -10,7 +10,10 @@ class CategorieService {
 
   static Future<void> ajouter(Categorie c) async {
     final db = await DatabaseService.database;
-    await db.insert('categories', c.toMap());
+    final data = c.toMap();
+    // 👇 C'est cette ligne qui manquait pour générer l'ID unique !
+    data['id'] = DateTime.now().millisecondsSinceEpoch.toString(); 
+    await db.insert('categories', data);
   }
 
   static Future<void> supprimer(String id) async {

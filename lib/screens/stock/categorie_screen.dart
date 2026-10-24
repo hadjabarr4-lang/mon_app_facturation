@@ -86,9 +86,28 @@ class _CategorieScreenState extends State<CategorieScreen> {
                     title: Text(cat.nom, style: const TextStyle(fontWeight: FontWeight.bold)),
                     subtitle: Text(cat.description ?? ''),
                     trailing: TextButton(
-                      onPressed: () async { await CategorieService.supprimer(cat.id!); _chargerCategories(); },
-                      child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
-                    ),
+  onPressed: () async {
+    if (cat.id != null) {
+      try {
+        await CategorieService.supprimer(cat.id!);
+        _chargerCategories(); // Rafraîchir la liste
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Catégorie supprimée !'), backgroundColor: Colors.green),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur : $e'), backgroundColor: Colors.red),
+        );
+      }
+    } else {
+      // Si l'ID est null (ancienne catégorie), on prévient
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible de supprimer cette ancienne catégorie.'), backgroundColor: Colors.orange),
+      );
+    }
+  },
+  child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+),
                   );
                 },
               ),
