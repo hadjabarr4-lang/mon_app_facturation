@@ -7,6 +7,13 @@ workflows:
       xcode: latest
       cocoapods: default
     scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Generate iOS Podfile
+        script: |
+          # On lance une première compilation qui va générer le Podfile
+          flutter build ios --release --no-codesign
       - name: Install CocoaPods dependencies
         script: |
           cd ios
