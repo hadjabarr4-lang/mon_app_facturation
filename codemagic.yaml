@@ -1,0 +1,25 @@
+workflows:
+  ios-unsigned:
+    name: iOS Unsigned Build
+    instance_type: mac_mini_m2
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Set iOS deployment target
+        script: |
+          find . -name "Podfile" -exec sed -i '' "s/^# platform :ios, '.*'/platform :ios, '15.0'/" {} \;
+          find . -name "Podfile" -exec sed -i '' "s/^platform :ios, '.*'/platform :ios, '15.0'/" {} \;
+      - name: Install CocoaPods dependencies
+        script: |
+          cd ios && pod install
+      - name: Build iOS app (unsigned)
+        script: |
+          flutter build ios --release --no-codesign
+          cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload/
+          zip -r app.ipa Payload
+    artifacts:
+      - build/ios/iphoneos/app.ipa
