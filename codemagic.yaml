@@ -27,10 +27,9 @@ workflows:
     artifacts:
       - build/ios/iphoneos/app.ipa
 
-  # 👇 NOUVEAU WORKFLOW POUR ANDROID 👇
   android-release:
     name: Android Release Build
-    instance_type: linux
+    instance_type: mac_mini_m2
     environment:
       flutter: stable
     scripts:
