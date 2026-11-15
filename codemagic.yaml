@@ -34,6 +34,8 @@ workflows:
       flutter: stable
       groups:
         - android_signing
+         vars:
+         CM_KEYSTORE_PATH: $CM_BUILD_DIR_/android/app/upload-keystore.jks
     scripts:
       - name: Get Flutter packages
         script: |
