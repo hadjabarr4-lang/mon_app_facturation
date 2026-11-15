@@ -12,7 +12,6 @@ workflows:
           flutter pub get
       - name: Generate iOS Podfile
         script: |
-          # On lance une première compilation qui va générer le Podfile
           flutter build ios --release --no-codesign
       - name: Install CocoaPods dependencies
         script: |
@@ -27,3 +26,19 @@ workflows:
           zip -r app.ipa Payload
     artifacts:
       - build/ios/iphoneos/app.ipa
+
+  # 👇 NOUVEAU WORKFLOW POUR ANDROID 👇
+  android-release:
+    name: Android Release Build
+    instance_type: linux
+    environment:
+      flutter: stable
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
+      - name: Build Android APK (Release)
+        script: |
+          flutter build apk --release
+    artifacts:
+      - build/app/outputs/flutter-apk/app-release.apk
