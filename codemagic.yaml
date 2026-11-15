@@ -38,10 +38,13 @@ workflows:
       - name: Get Flutter packages
         script: |
           flutter pub get
-      - name: Set up keystore
-        script: |
-          CLEAN_KEYSTORE=$(echo "$CM_KEYSTORE" | tr -d '[:space:]')
-          echo "$CLEAN_KEYSTORE" | base64 --decode > $CM_BUILD_DIR/android/app/upload-keystore.jks
+      scripts:
+  - name: Get Flutter packages
+    script: |
+      flutter pub get
+  - name: Build Android APK (Release)
+    script: |
+      flutter build apk --release
       - name: Build Android APK (Release)
         script: |
           flutter build apk --release
