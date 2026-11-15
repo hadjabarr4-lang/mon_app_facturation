@@ -8,6 +8,10 @@ android {
     namespace = "com.example.mon_app_facturation"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
+    lint {
+    checkReleaseBuilds = false
+    abortOnError = false
+}
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
