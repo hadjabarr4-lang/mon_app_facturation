@@ -38,13 +38,6 @@ workflows:
       - name: Get Flutter packages
         script: |
           flutter pub get
-      scripts:
-  - name: Get Flutter packages
-    script: |
-      flutter pub get
-  - name: Build Android APK (Release)
-    script: |
-      flutter build apk --release
       - name: Build Android APK (Release)
         script: |
           flutter build apk --release
