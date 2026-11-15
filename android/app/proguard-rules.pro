@@ -1,0 +1,1 @@
+-keep class dev.steenbakker.mobile_scanner.** { *; }
