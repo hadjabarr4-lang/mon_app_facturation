@@ -32,7 +32,7 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       flutter: stable
-      groups:
+      android_signing:
         - android_signing
     scripts:
       - name: Get Flutter packages
