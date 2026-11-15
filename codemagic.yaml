@@ -35,9 +35,13 @@ workflows:
       groups:
         - android_signing
     scripts:
+      - name: Get Flutter packages
+        script: |
+          flutter pub get
       - name: Set up keystore
         script: |
-          echo $CM_KEYSTORE | base64 --decode > $CM_BUILD_DIR/android/app/upload-keystore.jks
+          CLEAN_KEYSTORE=$(echo "$CM_KEYSTORE" | tr -d '[:space:]')
+          echo "$CLEAN_KEYSTORE" | base64 --decode > $CM_BUILD_DIR/android/app/upload-keystore.jks
       - name: Build Android APK (Release)
         script: |
           flutter build apk --release
