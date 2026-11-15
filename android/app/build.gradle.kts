@@ -19,9 +19,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
-    signingConfigs {
+   signingConfigs {
     create("release") {
-        storeFile = file(System.getenv("CM_KEYSTORE_PATH") ?: "upload-keystore.jks")
+        storeFile = file("upload-keystore.jks")
         storePassword = System.getenv("CM_KEYSTORE_PASSWORD")
         keyAlias = System.getenv("CM_KEY_ALIAS")
         keyPassword = System.getenv("CM_KEY_PASSWORD")
