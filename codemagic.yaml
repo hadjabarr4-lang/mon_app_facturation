@@ -32,10 +32,12 @@ workflows:
     instance_type: mac_mini_m2
     environment:
       flutter: stable
+      groups:
+        - android_signing
     scripts:
-      - name: Get Flutter packages
+      - name: Set up keystore
         script: |
-          flutter pub get
+          echo $CM_KEYSTORE | base64 --decode > $CM_BUILD_DIR/android/app/upload-keystore.jks
       - name: Build Android APK (Release)
         script: |
           flutter build apk --release
